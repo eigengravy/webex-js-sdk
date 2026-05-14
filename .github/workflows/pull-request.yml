@@ -490,3 +490,105 @@ jobs:
 
       - name: Test - Unit
         run: yarn workspaces foreach --verbose --exclude webex-js-sdk --include '${{ needs.generate-package-matrix.outputs.recursive }}' run test:unit
+
+  # Playwright calling E2E (label-gated like widgets repo): add label `run_e2e` + touch @webex/calling in the matrix.
+  test-e2e-calling:
+    name: Test - Calling E2E (Playwright)
+    needs: [build, generate-package-matrix]
+    if: contains(needs.generate-package-matrix.outputs.recursive, '@webex/calling') && contains(toJson(github.event.pull_request.labels), 'run_e2e')
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout Project
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'yarn'
+
+      - name: Uncache Environment Variables
+        uses: actions/cache@v4
+        with:
+          path: './.env'
+          key: env-${{ env.rid }}
+
+      - name: Uncache Dependencies
+        uses: actions/cache@v4
+        with:
+          path: '**/node_modules'
+          key: node-modules-${{ hashFiles('./yarn.lock') }}
+
+      - name: Uncache Distributables
+        uses: actions/cache@v4
+        with:
+          path: '**/dist'
+          key: dist-${{ env.rid }}
+
+      - name: Synchronize Packages
+        run: yarn
+
+      # calling/index.html loads ../calling.min.js from disk; samples:serve does not inject the dev bundle there.
+      - name: Build sample bundles for browser tests
+        run: yarn samples:build
+
+      - name: Install Playwright browsers and OS dependencies
+        run: yarn exec playwright install --with-deps chrome
+
+      - name: Write Playwright test-user variables to .env
+        run: |
+          {
+            echo "USER_1_EMAIL=\"${{ secrets.USER_1_EMAIL }}\""
+            echo "USER_1_PASSWORD=\"${{ secrets.USER_1_PASSWORD }}\""
+            echo "USER_1_PHONE_NUMBER=\"${{ secrets.USER_1_PHONE_NUMBER }}\""
+            echo "USER_2_EMAIL=\"${{ secrets.USER_2_EMAIL }}\""
+            echo "USER_2_PASSWORD=\"${{ secrets.USER_2_PASSWORD }}\""
+            echo "USER_2_PHONE_NUMBER=\"${{ secrets.USER_2_PHONE_NUMBER }}\""
+            echo "USER_3_EMAIL=\"${{ secrets.USER_3_EMAIL }}\""
+            echo "USER_3_PASSWORD=\"${{ secrets.USER_3_PASSWORD }}\""
+            echo "USER_3_PHONE_NUMBER=\"${{ secrets.USER_3_PHONE_NUMBER }}\""
+            echo "USER_4_EMAIL=\"${{ secrets.USER_4_EMAIL }}\""
+            echo "USER_4_PASSWORD=\"${{ secrets.USER_4_PASSWORD }}\""
+            echo "USER_4_PHONE_NUMBER=\"${{ secrets.USER_4_PHONE_NUMBER }}\""
+            echo "USER_5_EMAIL=\"${{ secrets.USER_5_EMAIL }}\""
+            echo "USER_5_PASSWORD=\"${{ secrets.USER_5_PASSWORD }}\""
+            echo "USER_5_PHONE_NUMBER=\"${{ secrets.USER_5_PHONE_NUMBER }}\""
+            echo "USER_6_EMAIL=\"${{ secrets.USER_6_EMAIL }}\""
+            echo "USER_6_PASSWORD=\"${{ secrets.USER_6_PASSWORD }}\""
+            echo "USER_6_PHONE_NUMBER=\"${{ secrets.USER_6_PHONE_NUMBER }}\""
+            echo "USER_1_INT_EMAIL=\"${{ secrets.USER_1_INT_EMAIL }}\""
+            echo "USER_1_INT_PASSWORD=\"${{ secrets.USER_1_INT_PASSWORD }}\""
+            echo "USER_2_INT_EMAIL=\"${{ secrets.USER_2_INT_EMAIL }}\""
+            echo "USER_2_INT_PASSWORD=\"${{ secrets.USER_2_INT_PASSWORD }}\""
+            echo "USER_3_INT_EMAIL=\"${{ secrets.USER_3_INT_EMAIL }}\""
+            echo "USER_3_INT_PASSWORD=\"${{ secrets.USER_3_INT_PASSWORD }}\""
+            echo "USER_4_INT_EMAIL=\"${{ secrets.USER_4_INT_EMAIL }}\""
+            echo "USER_4_INT_PASSWORD=\"${{ secrets.USER_4_INT_PASSWORD }}\""
+            echo "USER_5_INT_EMAIL=\"${{ secrets.USER_5_INT_EMAIL }}\""
+            echo "USER_5_INT_PASSWORD=\"${{ secrets.USER_5_INT_PASSWORD }}\""
+            echo "USER_6_INT_EMAIL=\"${{ secrets.USER_6_INT_EMAIL }}\""
+            echo "USER_6_INT_PASSWORD=\"${{ secrets.USER_6_INT_PASSWORD }}\""
+            echo "USER_1_INT_PHONE_NUMBER=\"${{ secrets.USER_1_INT_PHONE_NUMBER }}\""
+            echo "USER_2_INT_PHONE_NUMBER=\"${{ secrets.USER_2_INT_PHONE_NUMBER }}\""
+            echo "USER_3_INT_PHONE_NUMBER=\"${{ secrets.USER_3_INT_PHONE_NUMBER }}\""
+            echo "USER_4_INT_PHONE_NUMBER=\"${{ secrets.USER_4_INT_PHONE_NUMBER }}\""
+            echo "USER_5_INT_PHONE_NUMBER=\"${{ secrets.USER_5_INT_PHONE_NUMBER }}\""
+            echo "USER_6_INT_PHONE_NUMBER=\"${{ secrets.USER_6_INT_PHONE_NUMBER }}\""
+          } >> ./.env
+
+      - name: Test - Calling E2E
+        run: yarn workspace @webex/calling run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: calling-playwright-${{ github.run_id }}
+          path: |
+            packages/calling/playwright-report/**
+            packages/calling/test-results/**
+          retention-days: 10
