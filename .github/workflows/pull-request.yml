@@ -563,26 +563,26 @@ jobs:
             echo "USER_6_PHONE_NUMBER=\"${{ secrets.USER_6_PHONE_NUMBER }}\""
             echo "USER_1_INT_EMAIL=\"${{ secrets.USER_1_INT_EMAIL }}\""
             echo "USER_1_INT_PASSWORD=\"${{ secrets.USER_1_INT_PASSWORD }}\""
+            echo "USER_1_INT_PHONE_NUMBER=\"${{ secrets.USER_1_INT_PHONE_NUMBER }}\""
             echo "USER_2_INT_EMAIL=\"${{ secrets.USER_2_INT_EMAIL }}\""
             echo "USER_2_INT_PASSWORD=\"${{ secrets.USER_2_INT_PASSWORD }}\""
+            echo "USER_2_INT_PHONE_NUMBER=\"${{ secrets.USER_2_INT_PHONE_NUMBER }}\""
             echo "USER_3_INT_EMAIL=\"${{ secrets.USER_3_INT_EMAIL }}\""
             echo "USER_3_INT_PASSWORD=\"${{ secrets.USER_3_INT_PASSWORD }}\""
+            echo "USER_3_INT_PHONE_NUMBER=\"${{ secrets.USER_3_INT_PHONE_NUMBER }}\""
             echo "USER_4_INT_EMAIL=\"${{ secrets.USER_4_INT_EMAIL }}\""
             echo "USER_4_INT_PASSWORD=\"${{ secrets.USER_4_INT_PASSWORD }}\""
+            echo "USER_4_INT_PHONE_NUMBER=\"${{ secrets.USER_4_INT_PHONE_NUMBER }}\""
             echo "USER_5_INT_EMAIL=\"${{ secrets.USER_5_INT_EMAIL }}\""
             echo "USER_5_INT_PASSWORD=\"${{ secrets.USER_5_INT_PASSWORD }}\""
+            echo "USER_5_INT_PHONE_NUMBER=\"${{ secrets.USER_5_INT_PHONE_NUMBER }}\""
             echo "USER_6_INT_EMAIL=\"${{ secrets.USER_6_INT_EMAIL }}\""
             echo "USER_6_INT_PASSWORD=\"${{ secrets.USER_6_INT_PASSWORD }}\""
-            echo "USER_1_INT_PHONE_NUMBER=\"${{ secrets.USER_1_INT_PHONE_NUMBER }}\""
-            echo "USER_2_INT_PHONE_NUMBER=\"${{ secrets.USER_2_INT_PHONE_NUMBER }}\""
-            echo "USER_3_INT_PHONE_NUMBER=\"${{ secrets.USER_3_INT_PHONE_NUMBER }}\""
-            echo "USER_4_INT_PHONE_NUMBER=\"${{ secrets.USER_4_INT_PHONE_NUMBER }}\""
-            echo "USER_5_INT_PHONE_NUMBER=\"${{ secrets.USER_5_INT_PHONE_NUMBER }}\""
             echo "USER_6_INT_PHONE_NUMBER=\"${{ secrets.USER_6_INT_PHONE_NUMBER }}\""
           } >> ./.env
 
       - name: Test - Calling E2E
-        run: yarn workspace @webex/calling run test:e2e
+        run: MOBIUS=http yarn workspace @webex/calling run test:e2e --grep="PROD"
 
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
