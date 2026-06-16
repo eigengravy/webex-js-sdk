@@ -30,10 +30,18 @@ type MockResponse = {
   data?: any;
 };
 
+type CloseOptions = {
+  code: number;
+  reason?: string;
+};
+
 type RouteContext = {
   url: string;
   requestCount: number;
   responseCount: number;
+  connectionCount: number;
+  close: (options: CloseOptions) => Promise<void>;
+  closeAfterFrame: (options: CloseOptions) => void;
 };
 
 type MobiusWsInterceptorOptions = {
@@ -84,6 +92,8 @@ export class MobiusWsInterceptor {
 
   private readonly responseCounts = new Map<string, number>();
 
+  private connectionCount = 0;
+
   public readonly requests: Array<MobiusWsFrame & {url: string}> = [];
 
   public readonly responses: Array<MobiusWsFrame & {url: string}> = [];
@@ -96,6 +106,19 @@ export class MobiusWsInterceptor {
     await context.routeWebSocket(MOBIUS_WS_ROUTE, async (route: WebSocketRoute) => {
       const server = route.connectToServer();
       const url = route.url();
+      const connectionCount = MobiusWsInterceptor.incrementConnectionCount(this);
+      const buildContext = (requestCount: number, responseCount: number): RouteContext => ({
+        url,
+        requestCount,
+        responseCount,
+        connectionCount,
+        close: (options) => route.close(options),
+        closeAfterFrame: (options) => {
+          setTimeout(() => {
+            route.close(options).catch(() => {});
+          }, 0);
+        },
+      });
 
       route.onMessage(async (message) => {
         const frame = parseFrame(message);
@@ -111,11 +134,10 @@ export class MobiusWsInterceptor {
 
         let mockedResponse: MockResponse | void;
         try {
-          mockedResponse = await this.options.onRequest?.(frame, {
-            url,
-            requestCount,
-            responseCount: this.getResponseCount(frame.type),
-          });
+          mockedResponse = await this.options.onRequest?.(
+            frame,
+            buildContext(requestCount, this.getResponseCount(frame.type))
+          );
         } catch (err) {
           console.error('MobiusWsInterceptor onRequest threw, passing frame through', err);
           server.send(message);
@@ -152,11 +174,10 @@ export class MobiusWsInterceptor {
 
         let transformedFrame: MobiusWsFrame | void;
         try {
-          transformedFrame = await this.options.onResponse?.(frame, {
-            url,
-            requestCount: this.getRequestCount(responseType),
-            responseCount,
-          });
+          transformedFrame = await this.options.onResponse?.(
+            frame,
+            buildContext(this.getRequestCount(responseType), responseCount)
+          );
         } catch (err) {
           console.error('MobiusWsInterceptor onResponse threw, passing frame through', err);
           route.send(message);
@@ -183,6 +204,16 @@ export class MobiusWsInterceptor {
 
   getResponseCount(type: string): number {
     return this.responseCounts.get(type) || 0;
+  }
+
+  getConnectionCount(): number {
+    return this.connectionCount;
+  }
+
+  private static incrementConnectionCount(interceptor: MobiusWsInterceptor): number {
+    interceptor.connectionCount += 1;
+
+    return interceptor.connectionCount;
   }
 
   private static increment(map: Map<string, number>, key: string): number {
