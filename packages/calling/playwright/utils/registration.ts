@@ -52,7 +52,7 @@ export const getActiveMobiusUrl = (page: Page): Promise<string> =>
     ).registration.getActiveMobiusUrl()
   );
 
-export const getDiscoveredMobiusUrls = (
+export const getDiscoveredMobiusHttpUrls = (
   page: Page
 ): Promise<{primary: string[]; backup: string[]}> =>
   page.evaluate(() => {
@@ -63,9 +63,6 @@ export const getDiscoveredMobiusUrls = (
       backup: client?.backupMobiusUris ?? [],
     };
   });
-
-export const isKnownMobiusUrl = (url: string | undefined, urls: string[]): boolean =>
-  Boolean(url && urls.some((knownUrl) => url.startsWith(knownUrl)));
 
 export const getDeviceInfo = (page: Page) =>
   page.evaluate(() => {
