@@ -12,13 +12,12 @@ import {
   verifyLineRegistered,
   isLineRegistered,
   getActiveMobiusUrl,
-  getDiscoveredMobiusUrls,
-  isKnownMobiusUrl,
+  getDiscoveredMobiusHttpUrls,
 } from '../utils/registration';
 import {CALLING_SELECTORS, REGISTRATION_TIMEOUT, AWAIT_TIMEOUT} from '../constants';
 import {
   getDiscoveredMobiusWsUrls,
-  isKnownWsUrl,
+  isKnownMobiusUrl,
   MOBIUS_WS_MESSAGE,
   MobiusWsInterceptor,
 } from '../utils/mobius-ws';
@@ -365,8 +364,6 @@ export function registrationKeepaliveTests() {
 
       let primaryMobiusUrls: string[] = [];
       let backupMobiusUrls: string[] = [];
-      let primaryWsUrls: string[] = [];
-      let backupWsUrls: string[] = [];
       const HIGH_RETRY_AFTER = 120; // Above RETRY_TIMER_UPPER_LIMIT (60s)
       let primaryAttempts = 0;
       let backupAttempts = 0;
@@ -379,7 +376,7 @@ export function registrationKeepaliveTests() {
               return undefined;
             }
 
-            if (isKnownWsUrl(routeContext.url, primaryWsUrls)) {
+            if (isKnownMobiusUrl(routeContext.url, primaryMobiusUrls)) {
               primaryAttempts += 1;
 
               return {
@@ -426,17 +423,13 @@ export function registrationKeepaliveTests() {
       await setServiceIndicator(page, 'calling');
       await initializeCallingSDK(page, getToken(role, isInt));
       await verifySDKInitialized(page);
-      if (mobiusWsMode) {
-        const discovered = await getDiscoveredMobiusWsUrls(page);
-        primaryWsUrls = discovered.primary;
-        backupWsUrls = discovered.backup;
-      } else {
-        const discovered = await getDiscoveredMobiusUrls(page);
-        primaryMobiusUrls = discovered.primary;
-        backupMobiusUrls = discovered.backup;
-        expect(primaryMobiusUrls.length).toBeGreaterThan(0);
-        expect(backupMobiusUrls.length).toBeGreaterThan(0);
-      }
+      const discoveredMobiusUrls = mobiusWsMode
+        ? await getDiscoveredMobiusWsUrls(page)
+        : await getDiscoveredMobiusHttpUrls(page);
+      primaryMobiusUrls = discoveredMobiusUrls.primary;
+      backupMobiusUrls = discoveredMobiusUrls.backup;
+      expect(primaryMobiusUrls.length).toBeGreaterThan(0);
+      expect(backupMobiusUrls.length).toBeGreaterThan(0);
 
       await page.locator(CALLING_SELECTORS.REGISTER_BTN).click({timeout: AWAIT_TIMEOUT});
 
@@ -451,11 +444,7 @@ export function registrationKeepaliveTests() {
 
       // Verify registered on backup, not primary
       const activeMobius = await getActiveMobiusUrl(page);
-      if (mobiusWsMode) {
-        expect(isKnownWsUrl(activeMobius, backupWsUrls)).toBe(true);
-      } else {
-        expect(isKnownMobiusUrl(activeMobius, backupMobiusUrls)).toBe(true);
-      }
+      expect(isKnownMobiusUrl(activeMobius, backupMobiusUrls)).toBe(true);
 
       // Verify failover happened well before the 120s Retry-After would have elapsed
       const elapsed = Date.now() - testStartTime;
